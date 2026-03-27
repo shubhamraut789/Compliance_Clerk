@@ -13,6 +13,7 @@ Migration: https://ai.google.dev/gemini-api/docs/migrate
 
 import logging
 import os
+import re
 import time
 from typing import Optional
 
@@ -23,10 +24,15 @@ from extractor.prompt_builder import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
+# Rate-limit retry settings
+MAX_RATE_RETRIES = 3       # how many times to retry on 429
+INITIAL_BACKOFF  = 10      # seconds before first retry
+MAX_BACKOFF      = 60      # max wait between retries
 
 class LLMClient:
     """
     Wraps the Google GenAI SDK for single-turn extraction calls.
+    Handles 429 rate-limit errors with automatic exponential backoff.
 
     Usage:
         client = LLMClient()
@@ -59,6 +65,7 @@ class LLMClient:
     ) -> str:
         """
         Send a prompt (optionally with an image) to the LLM.
+        Automatically retries on 429 rate-limit errors with backoff.
 
         Args:
             prompt:      The user-turn content.
@@ -70,7 +77,7 @@ class LLMClient:
             Raw string response from the LLM.
 
         Raises:
-            RuntimeError if the API call fails.
+            RuntimeError if the API call fails after all retries
         """
         contents = self._build_contents(prompt, image_bytes)
         start_ms = int(time.time() * 1000)
@@ -79,16 +86,7 @@ class LLMClient:
         parsed_ok = False
 
         try:
-            # New SDK: client.models.generate_content(...)
-            response = self._client.models.generate_content(
-                model=self.model,
-                contents=contents,
-                config={
-                    "system_instruction": SYSTEM_PROMPT,
-                    "max_output_tokens": MAX_TOKENS,
-                },
-            )
-            raw_response = response.text
+            raw_response = self._call_with_backoff(contents)
             parsed_ok = True
             logger.debug("LLM responded (%d chars)", len(raw_response or ""))
 
@@ -111,7 +109,82 @@ class LLMClient:
             )
 
         return raw_response or ""
+    
+    def _call_with_backoff(self, contents: list) -> str:
+        """
+        Call Gemini API with exponential backoff on 429 rate-limit errors.
 
+        Parses the retryDelay from the error response if available,
+        otherwise uses exponential backoff starting at INITIAL_BACKOFF.
+        """
+        last_exc = None
+        backoff = INITIAL_BACKOFF
+
+        for attempt in range(1, MAX_RATE_RETRIES + 1):
+            try:
+                response = self._client.models.generate_content(
+                    model=self.model,
+                    contents=contents,
+                    config={
+                        "system_instruction": SYSTEM_PROMPT,
+                        "max_output_tokens": MAX_TOKENS,
+                    },
+                )
+
+                # Extract text — response.text can be None for thinking models
+                text = response.text
+                if text is None:
+                    # Fallback: try to get text from candidates
+                    try:
+                        parts = response.candidates[0].content.parts
+                        text = "".join(
+                            p.text for p in parts if hasattr(p, "text") and p.text
+                        )
+                    except (IndexError, AttributeError):
+                        text = ""
+
+                    if text:
+                        logger.debug("Extracted text from response.candidates (%d chars)", len(text))
+                    else:
+                        logger.warning("LLM returned empty response (no text in candidates either)")
+
+                return text or ""
+
+            except Exception as exc:
+                last_exc = exc
+                exc_str = str(exc)
+
+                # Check if this is a 429 rate-limit error
+                if "429" in exc_str or "RESOURCE_EXHAUSTED" in exc_str:
+                    # Try to parse the retry delay from the response
+                    wait_time = self._parse_retry_delay(exc_str) or backoff
+
+                    if attempt < MAX_RATE_RETRIES:
+                        logger.warning(
+                            "Rate limited (429) — waiting %.0fs before retry %d/%d",
+                            wait_time, attempt, MAX_RATE_RETRIES,
+                        )
+                        time.sleep(wait_time)
+                        backoff = min(backoff * 2, MAX_BACKOFF)  # exponential
+                        continue
+
+                # Not a 429, or retries exhausted — re-raise
+                raise
+
+        # Should not reach here, but just in case
+        raise last_exc
+
+    @staticmethod
+    def _parse_retry_delay(error_text: str) -> Optional[float]:
+        """
+        Extract the retryDelay value from a Gemini 429 error response.
+        Example: "retryDelay': '37s'" → 37.0
+        """
+        match = re.search(r"retryDelay['\"]?\s*[:=]\s*['\"]?(\d+(?:\.\d+)?)", error_text)
+        if match:
+            return float(match.group(1))
+        return None
+    
     @staticmethod
     def _build_contents(prompt: str, image_bytes: Optional[bytes] = None) -> list:
         """

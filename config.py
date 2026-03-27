@@ -22,9 +22,9 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── LLM settings ──────────────────────────────────────────────────────────────
-LLM_MODEL      = os.getenv("LLM_MODEL", "gemini-2.0-flash")
+LLM_MODEL      = os.getenv("LLM_MODEL", "gemini-3-flash-preview")
 GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
-MAX_TOKENS     = 1500
+MAX_TOKENS     = 4096
 MAX_RETRIES    = 2          # schema-enforcement retries
 OCR_PAGE_DPI   = 150        # DPI for rasterising scanned pages
 

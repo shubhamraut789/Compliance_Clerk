@@ -198,10 +198,28 @@ class SchemaEnforcer:
                         file_name=file_name,
                     )
 
+                # Debug: log what we got
+                if not raw or not raw.strip():
+                    logger.warning(
+                        "Attempt %d: LLM returned empty/None response for '%s'",
+                        attempt + 1, file_name,
+                    )
+                    continue
+
+                logger.debug(
+                    "Attempt %d raw response (first 300 chars): %s",
+                    attempt + 1, raw[:300],
+                )
+
                 parsed = _parse_json(raw)
                 if parsed is not None:
                     return _fill_missing_keys(parsed, schema)
-
+                
+                # If we get here, parsing failed — log what we couldn't parse
+                logger.warning(
+                    "Attempt %d: could not parse JSON from response (first 200 chars): %s",
+                    attempt + 1, raw[:200],
+                )
             except Exception as exc:
                 logger.error("LLM call failed on attempt %d: %s", attempt + 1, exc)
                 if attempt == MAX_RETRIES:

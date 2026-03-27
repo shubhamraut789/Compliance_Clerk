@@ -1,0 +1,47 @@
+@@ -1,34 +1,45 @@
+# Environment
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+env/
+.venv/
+
+# Data & outputs (exclude sensitive docs)
+data/samples/
+data/output/
+data/files
+logs/
+
+# DB files (keep schema, not data)
+*.db
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+*.swp
+
+# Documents (except README)
+*.pdf
+*.xlsx
+*.md
+*.txt
+!README.md
+
+# Windows Zone.Identifier metadata files
+*:Zone.Identifier
