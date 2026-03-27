@@ -16,6 +16,14 @@ from pathlib import Path
 from typing import List, Optional
 
 import pdfplumber
+import re
+import unicodedata
+
+
+def normalize_text(t):
+    t = unicodedata.normalize("NFKC", t)
+    t = re.sub(r"\\(cid:\\d+\\)", " ", t)    # remove rusted cid placeholders
+    return t.lower()
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +82,7 @@ class BaseParser(ABC):
         Returns a DocumentResult ready for the LLM extractor.
         """
         pages = self._extract_pages()
-        first_text = " ".join(p.text for p in pages[:3]).lower()
+        first_text = normalize_text(" ".join(p.text for p in pages[:3]))
         doc_type = self.detect_doc_type(first_text)
 
         result = DocumentResult(

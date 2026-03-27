@@ -28,9 +28,10 @@ OCR_PAGE_DPI   = 150        # DPI for rasterising scanned pages
 # ── Document-type keywords (used for auto-detection) ──────────────────────────
 ECHALLAN_KEYWORDS = ["challan", "echallan", "e-challan", "traffic", "violation",
                      "offence", "vehicle", "fine"]
-LEASE_DEED_KEYWORDS = ["lease", "deed", "lessee", "lessor", "survey", "na order",
-                        "non-agricultural", "rampura", "banaskantha"]
-
+NA_PERMISSION_KEYWORDS = ["non-agricultural", "na permission", "na order", "iora",
+                          "survey", "mamlatdar", "taluka", "district"]
+LEASE_DEED_KEYWORDS = ["lease deed", "lease", "lessee", "lessor", "survey",
+                       "dhanera", "rampura", "banaskantha"]
 # ── Extraction schemas ─────────────────────────────────────────────────────────
 # Each schema maps output column name → description for the LLM.
 
@@ -43,20 +44,28 @@ ECHALLAN_SCHEMA = {
     "payment_status":      "Payment status (e.g. Paid / Unpaid / Pending)",
 }
 
+NA_PERMISSION_SCHEMA = {
+    "survey_number":       "Survey number of the land / property",
+    "land_area":           "Total land area (numeric, in SQM or as stated in document)",
+    "owner_name":          "Full name of the land owner / applicant",
+    "order_date":          "Date of the NA Permission order (DD/MM/YYYY)",
+    "authority_name":      "Name of the authority issuing the permission",
+    "order_number":        "Reference number or order number of the NA Permission",
+    "taluka":              "Taluka where the land is situated",
+    "district":            "District where the land is situated",
+    "na_order_number":     "NA Order reference number if applicable",
+}
+
 LEASE_DEED_SCHEMA = {
-    "village":             "Village name where the land is situated",
-    "survey_number":       "New survey number of the subject land",
-    "area_in_na_order":    "Area of land as per the NA Order (numeric, in SQM or Acres as stated)",
-    "dated":               "Date of the NA Order (DD/MM/YYYY)",
-    "na_order_number":     "NA Order / iORA reference number",
-    "lease_deed_doc_no":   "Lease Deed document / registration number (e.g. 837/2025)",
-    "lease_area":          "Total lease area in SQM (numeric only)",
-    "lease_start_date":    "Date the lease deed was executed / registered (DD/MM/YYYY)",
+    "survey_number":       "Survey number / plot number of the land (e.g. 251/P2)",
+    "land_area":           "Total land area (numeric, in SQM or Acres as stated)",
     "owner_name":          "Full name of the Lessor / land owner",
     "lessee_name":         "Full name of the Lessee / company taking the lease",
     "taluka":              "Taluka where the land is situated",
     "district":            "District where the land is situated",
+    "lease_start_date":    "Date the lease deed was executed / registered (DD/MM/YYYY)",
     "lease_term_years":    "Lease term in years",
+    "lease_deed_doc_no":   "Lease Deed document / registration number",
 }
 
 # ── Excel output column order ──────────────────────────────────────────────────
@@ -66,12 +75,16 @@ ECHALLAN_COLUMNS = [
     "amount", "offence_description", "payment_status",
 ]
 
+NA_PERMISSION_COLUMNS = [
+    "sr_no", "source_file",
+    "survey_number", "land_area", "owner_name", "order_date",
+    "authority_name", "order_number", "taluka", "district", "na_order_number",
+]
+
 LEASE_DEED_COLUMNS = [
     "sr_no", "source_file",
-    "village", "survey_number", "area_in_na_order", "dated",
-    "na_order_number", "lease_deed_doc_no", "lease_area",
-    "lease_start_date", "owner_name", "lessee_name",
-    "taluka", "district", "lease_term_years",
+     "survey_number", "land_area", "owner_name", "lessee_name",
+    "taluka", "district", "lease_start_date", "lease_term_years", "lease_deed_doc_no",
 ]
 
 # ── Logging ────────────────────────────────────────────────────────────────────
